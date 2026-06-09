@@ -1,0 +1,17 @@
+# Block direct access to sensitive files
+<FilesMatch "\.(dat|json|enc|php)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Block data file, config, debug, bridge, hash tool
+<FilesMatch "^(notes\.dat|config\.php|debug\.php|bridge\.php|make_hash\.php)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Allow only the public PHP pages
+<FilesMatch "^(index|login|logout|fetch_notes)\.php$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>

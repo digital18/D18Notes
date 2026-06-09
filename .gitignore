@@ -1,0 +1,67 @@
+# ══════════════════════════════════════════════════════════
+#  D18 Notes — .gitignore
+#  https://github.com/yourusername/d18notes
+# ══════════════════════════════════════════════════════════
+
+# ── User data (NEVER commit) ──────────────────────────────
+notes.dat
+
+# ── Security tools (delete from server after use) ─────────
+make_hash.php
+debug.php
+bridge.php
+
+# ── Server-specific config (copy from config.example.php) ─
+# Uncomment the line below if you store real credentials in config.php
+# config.php
+
+# ── PHP runtime ───────────────────────────────────────────
+.user.ini
+php_errors.log
+error_log
+
+# ── OS files ──────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ── IDE / Editor ──────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ── Environment files ─────────────────────────────────────
+.env
+.env.local
+.env.production
+*.env
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Backups ───────────────────────────────────────────────
+*.bak
+*.backup
+*.old
+*.orig
+
+# ── Archives ──────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar
+
+# ── Composer (if ever added) ──────────────────────────────
+vendor/
+composer.lock

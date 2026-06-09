@@ -1,0 +1,43 @@
+{
+  "name": "D18 Notes",
+  "short_name": "D18 Notes",
+  "description": "Personal encrypted notes — always with you",
+  "start_url": "./index.php",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0f2f7",
+  "theme_color": "#6c63ff",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.php?size=192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.php?size=512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Note",
+      "short_name": "New",
+      "description": "Open notes and write",
+      "url": "./index.php",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    }
+  ]
+}

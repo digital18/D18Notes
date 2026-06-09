@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6c63ff"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="clip" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <clipPath id="round">
+      <rect width="512" height="512" rx="115"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+
+  <!-- Notepad shadow -->
+  <rect x="138" y="122" width="250" height="318" rx="22" fill="rgba(0,0,0,0.15)"/>
+
+  <!-- Notepad body -->
+  <rect x="132" y="114" width="250" height="318" rx="22" fill="white"/>
+
+  <!-- Text lines -->
+  <rect x="172" y="192" width="176" height="14" rx="7" fill="#6c63ff" opacity="0.55"/>
+  <rect x="172" y="228" width="176" height="14" rx="7" fill="#6c63ff" opacity="0.55"/>
+  <rect x="172" y="264" width="176" height="14" rx="7" fill="#6c63ff" opacity="0.55"/>
+  <rect x="172" y="300" width="176" height="14" rx="7" fill="#6c63ff" opacity="0.35"/>
+  <rect x="172" y="336" width="110" height="14" rx="7" fill="#6c63ff" opacity="0.25"/>
+
+  <!-- Clip shadow -->
+  <rect x="212" y="82" width="90" height="60" rx="12" fill="rgba(0,0,0,0.15)"/>
+
+  <!-- Clip body -->
+  <rect x="208" y="76" width="90" height="60" rx="12" fill="url(#clip)"/>
+
+  <!-- Clip hole -->
+  <circle cx="253" cy="106" r="14" fill="white" opacity="0.35"/>
+  <circle cx="253" cy="106" r="7"  fill="url(#clip)"/>
+
+  <!-- Dividing line -->
+  <rect x="132" y="154" width="250" height="3" fill="#6c63ff" opacity="0.08"/>
+</svg>
