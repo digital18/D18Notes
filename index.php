@@ -16,6 +16,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     exit;
 }
 
+// Edit note (AJAX)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit') {
+    $id   = (int)($_POST['id'] ?? 0);
+    $note = trim($_POST['note'] ?? '');
+    $dt   = trim($_POST['datetime'] ?? '');
+    if ($id > 0 && $note !== '') {
+        $dt = ($dt !== '') ? $dt : date('Y-m-d H:i:s');
+        updateNote($id, $note, $dt);
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
 // Add note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note'])) {
     $note = trim($_POST['note'] ?? '');
@@ -28,8 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note'])) {
     }
 }
 
-$notes = fetchNotes();
-$count = count($notes);
+$notes     = fetchNotes();
+$count     = count($notes);
+$bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -344,6 +359,12 @@ $count = count($notes);
     scroll-margin-top: 20px;
   }
 
+  /* Left-aligned bubbles */
+  body.bubbles-left .note-wrapper {
+    align-items: flex-start;
+    align-self: flex-start;
+  }
+
   .note-bubble {
     background: var(--bubble);
     color: #fff;
@@ -355,6 +376,11 @@ $count = count($notes);
     word-break: break-word;
     box-shadow: 0 4px 18px rgba(108,99,255,0.25);
     transition: box-shadow 0.3s;
+  }
+
+  /* Left tail on left-aligned bubbles */
+  body.bubbles-left .note-bubble {
+    border-radius: var(--radius) var(--radius) var(--radius) 4px;
   }
 
   /* highlight animation when jumped to */
@@ -426,6 +452,10 @@ $count = count($notes);
   .del-btn { color: #ef4444; }
   .del-btn:hover { background: rgba(239,68,68,0.1) !important; opacity: 1 !important; }
 
+  /* Edit icon */
+  .edit-btn { color: #f59e0b; }
+  .edit-btn:hover { background: rgba(245,158,11,0.1) !important; opacity: 1 !important; }
+
   /* Info tooltip */
   .info-wrap { position: relative; }
 
@@ -458,6 +488,17 @@ $count = count($notes);
     right: 10px;
     border: 5px solid transparent;
     border-top-color: #1e1e2e;
+  }
+
+  /* Left-side tooltip positioning */
+  body.bubbles-left .info-tooltip {
+    right: auto;
+    left: -4px;
+    transform-origin: bottom left;
+  }
+  body.bubbles-left .info-tooltip::after {
+    right: auto;
+    left: 10px;
   }
 
   /* Show on hover (desktop) or .show class (mobile tap) */
@@ -685,9 +726,156 @@ $count = count($notes);
     .search-bar { padding: 10px 12%; }
     .search-results { left: 12%; right: 12%; }
   }
+
+  /* ── Edit Modal ──────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(3px);
+  }
+
+  .modal-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 28px 28px 24px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: modal-in 0.2s ease;
+  }
+
+  @keyframes modal-in {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0);    }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .modal-header h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .modal-close:hover { background: rgba(0,0,0,0.07); color: var(--text); }
+
+  .edit-textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--text);
+    resize: vertical;
+    min-height: 110px;
+    max-height: 260px;
+    outline: none;
+    line-height: 1.55;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .edit-textarea:focus {
+    border-color: var(--accent);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+  }
+
+  .edit-dt-label {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: -6px;
+  }
+
+  .edit-dt-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .edit-dt-input:focus {
+    border-color: var(--accent);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .btn-modal-cancel {
+    background: rgba(0,0,0,0.06);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--muted);
+    transition: background 0.15s;
+  }
+  .btn-modal-cancel:hover { background: rgba(0,0,0,0.1); }
+
+  .btn-modal-save {
+    background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 22px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    color: #fff;
+    transition: opacity 0.2s;
+    box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+  }
+  .btn-modal-save:hover   { opacity: 0.88; }
+  .btn-modal-save:active  { transform: scale(0.97); }
+  .btn-modal-save:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 </head>
-<body>
+<body class="<?= $bodyClass ?>">
 
 <!-- Header -->
 <header>
@@ -768,6 +956,11 @@ $count = count($notes);
           </div>
           <?php endif; ?>
 
+          <button type="button" class="icon-btn edit-btn" title="Edit note"
+            data-id="<?= (int)$note['Id'] ?>"
+            data-note="<?= htmlspecialchars($note['Note'], ENT_QUOTES) ?>"
+            data-dt="<?= htmlspecialchars($note['DateTime'], ENT_QUOTES) ?>">✏️</button>
+
           <form method="POST" action="index.php" onsubmit="return confirm('Delete this note?')" style="display:contents">
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="id" value="<?= (int)$note['Id'] ?>">
@@ -783,6 +976,23 @@ $count = count($notes);
   <?php endif; ?>
 
   <div id="bottom"></div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal-overlay" style="display:none" onclick="handleModalOverlayClick(event)">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>✏️ Edit Note</h3>
+      <button type="button" class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <textarea id="editText" class="edit-textarea" placeholder="Note content…"></textarea>
+    <label class="edit-dt-label">Date &amp; Time</label>
+    <input type="datetime-local" id="editDatetime" class="edit-dt-input">
+    <div class="modal-actions">
+      <button type="button" class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button>
+      <button type="button" class="btn-modal-save" id="saveEditBtn" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
 </div>
 
 <!-- Floating "new notes" button -->
@@ -1016,6 +1226,11 @@ $count = count($notes);
         <div class="info-tooltip">${infoRows}</div>
       </div>` : '';
 
+    const editBtn = `<button type="button" class="icon-btn edit-btn" title="Edit note"
+      data-id="${n.Id}"
+      data-note="${escapeAttr(n.Note)}"
+      data-dt="${escapeAttr(n.DateTime)}">✏️</button>`;
+
     return `
       <div class="note-wrapper" id="note-${n.Id}">
         <div class="note-bubble">${noteText}</div>
@@ -1023,6 +1238,7 @@ $count = count($notes);
           <span class="note-time">${formatTime(n.DateTime)}</span>
           <div class="action-icons">
             ${infoBtn}
+            ${editBtn}
             <form method="POST" action="index.php" onsubmit="return confirm('Delete this note?')" style="display:contents">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="${n.Id}">
@@ -1131,23 +1347,131 @@ $count = count($notes);
     deferredPrompt = null;
   });
 
-  // ── Info tooltip: tap to toggle (mobile) ───────────────────────────────────
+  // ── Escape attribute value ──────────────────────────────────────────────────
+  function escapeAttr(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // ── Info tooltip: tap to toggle + edit click handler (delegated) ────────────
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.info-btn');
-    if (btn) {
+    // Info button
+    const infoBtn = e.target.closest('.info-btn');
+    if (infoBtn) {
       e.stopPropagation();
-      const wrap = btn.closest('.info-wrap');
+      const wrap   = infoBtn.closest('.info-wrap');
       const isOpen = wrap.classList.contains('show');
-      // Close all open tooltips first
       document.querySelectorAll('.info-wrap.show').forEach(w => w.classList.remove('show'));
       if (!isOpen) wrap.classList.add('show');
       return;
     }
-    // Click outside closes all
+    // Edit button
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+      e.stopPropagation();
+      openEditModal(
+        parseInt(editBtn.dataset.id),
+        editBtn.dataset.note,
+        editBtn.dataset.dt
+      );
+      return;
+    }
+    // Click outside closes tooltips
     if (!e.target.closest('.info-wrap')) {
       document.querySelectorAll('.info-wrap.show').forEach(w => w.classList.remove('show'));
     }
   });
+
+  // ── Edit modal ──────────────────────────────────────────────────────────────
+  let editingId = null;
+
+  function openEditModal(id, note, dt) {
+    editingId = id;
+    document.getElementById('editText').value = note;
+    // Convert 'YYYY-MM-DD HH:MM:SS' → 'YYYY-MM-DDTHH:MM' for datetime-local input
+    document.getElementById('editDatetime').value = dt.replace(' ', 'T').slice(0, 16);
+    document.getElementById('editModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('editText').focus(), 50);
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    editingId = null;
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('editModal')) closeEditModal();
+  }
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('editModal').style.display !== 'none') {
+      closeEditModal();
+    }
+  });
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const note = document.getElementById('editText').value.trim();
+    if (!note) return;
+    const dtRaw = document.getElementById('editDatetime').value; // 'YYYY-MM-DDTHH:MM'
+    const dt    = dtRaw ? dtRaw.replace('T', ' ') + ':00' : '';
+
+    const saveBtn = document.getElementById('saveEditBtn');
+    saveBtn.disabled    = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      const fd = new FormData();
+      fd.append('action',   'edit');
+      fd.append('id',       editingId);
+      fd.append('note',     note);
+      fd.append('datetime', dt);
+
+      const res  = await fetch('index.php', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (data.ok) {
+        const wrapper = document.getElementById('note-' + editingId);
+        if (wrapper) {
+          // Update bubble text
+          wrapper.querySelector('.note-bubble').innerHTML =
+            escapeHtml(note).replace(/\n/g, '<br>');
+
+          // Update displayed time
+          if (dt) {
+            const d = new Date(dt.replace(' ', 'T'));
+            wrapper.querySelector('.note-time').textContent =
+              d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+          }
+
+          // Update edit-btn data attributes for future edits
+          const eb = wrapper.querySelector('.edit-btn');
+          if (eb) {
+            eb.dataset.note = note;
+            if (dt) eb.dataset.dt = dt;
+          }
+
+          // Update search index
+          const idx = notesData.findIndex(n => n.id === editingId);
+          if (idx >= 0) {
+            notesData[idx].text     = note;
+            if (dt) notesData[idx].datetime = dt;
+          }
+        }
+        closeEditModal();
+      }
+    } catch (err) {
+      console.error('Edit save failed:', err);
+    } finally {
+      saveBtn.disabled    = false;
+      saveBtn.textContent = 'Save Changes';
+    }
+  }
 
   // ── Copy selected text tooltip ──────────────────────────────────────────────
   const copyBtn = document.createElement('div');

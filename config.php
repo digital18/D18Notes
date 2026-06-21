@@ -19,6 +19,11 @@ define('ENCRYPT_SECRET', 'D18Notes@Bhavesh#SecretPhrase2024!ChangeThis');
 // Stored in the same folder as index.php, encrypted so it cannot be read directly.
 define('DATA_FILE', __DIR__ . '/notes.dat');
 
+// ── Note bubble alignment ─────────────────────────────────────────────────────
+// 'left'  — bubbles align to the left (document/diary style)
+// 'right' — bubbles align to the right (chat/WhatsApp style)
+define('BUBBLE_ALIGN', 'left');
+
 // ── Derive 32-byte AES-256 key from passphrase ────────────────────────────────
 function getEncryptKey(): string {
     return hash('sha256', ENCRYPT_SECRET, true); // 32 raw bytes
@@ -85,6 +90,20 @@ function deleteNote(int $id): void {
     $notes = array_values(array_filter($notes, function($n) use ($id) {
         return (int)$n['Id'] !== $id;
     }));
+    saveNotes($notes);
+}
+
+// ── Update a note's text and/or datetime ─────────────────────────────────────
+function updateNote(int $id, string $note, string $dateTime): void {
+    $notes = loadNotes();
+    foreach ($notes as &$n) {
+        if ((int)$n['Id'] === $id) {
+            $n['Note']     = $note;
+            $n['DateTime'] = $dateTime;
+            break;
+        }
+    }
+    unset($n);
     saveNotes($notes);
 }
 

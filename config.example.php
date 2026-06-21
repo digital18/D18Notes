@@ -31,6 +31,12 @@ define('ENCRYPT_SECRET', 'change-this-to-a-long-random-phrase-you-will-remember'
 //   define('DATA_FILE', '/home/yourusername/private/notes.dat');
 define('DATA_FILE', __DIR__ . '/notes.dat');
 
+// ── Note bubble alignment ─────────────────────────────────────────────────────
+// Controls which side note bubbles appear on.
+// 'left'  — left-aligned bubbles (document/diary style)
+// 'right' — right-aligned bubbles (chat/WhatsApp style)
+define('BUBBLE_ALIGN', 'left');
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  Everything below this line is application logic — no need to change.
 // ══════════════════════════════════════════════════════════════════════════════
@@ -101,6 +107,20 @@ function deleteNote(int $id): void {
     $notes = array_values(array_filter($notes, function($n) use ($id) {
         return (int)$n['Id'] !== $id;
     }));
+    saveNotes($notes);
+}
+
+// ── Update a note's text and/or datetime ─────────────────────────────────────
+function updateNote(int $id, string $note, string $dateTime): void {
+    $notes = loadNotes();
+    foreach ($notes as &$n) {
+        if ((int)$n['Id'] === $id) {
+            $n['Note']     = $note;
+            $n['DateTime'] = $dateTime;
+            break;
+        }
+    }
+    unset($n);
     saveNotes($notes);
 }
 
