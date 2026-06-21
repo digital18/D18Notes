@@ -5,6 +5,7 @@
 
 # ── User data (NEVER commit) ──────────────────────────────
 notes.dat
+media/
 
 # ── Security tools (delete from server after use) ─────────
 make_hash.php

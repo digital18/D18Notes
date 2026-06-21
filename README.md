@@ -10,7 +10,7 @@
 [![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Encryption](https://img.shields.io/badge/Encryption-AES--256--CBC-22c55e)](https://www.php.net/manual/en/function.openssl-encrypt.php)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.3.0-6c63ff)](https://github.com/digital18/D18Notes/releases)
+[![Version](https://img.shields.io/badge/Version-1.4.0-6c63ff)](https://github.com/digital18/D18Notes/releases)
 [![Made by](https://img.shields.io/badge/Made%20by-DIGITAL18.IN-6c63ff)](https://digital18.in)
 
 *Write notes. Stay private. No setup hassle.*
@@ -61,6 +61,18 @@ It looks and feels like a modern chat app, works offline as a PWA, auto-updates 
 - **Custom bubble colors** — set bubble background and text color independently in config
 - **White bubbles by default** — clean minimal look with subtle border and neutral shadow
 - **CSS `color-mix()` theming** — accent color scales automatically to all tints and shadows
+
+### 📎 File & Media Attachments
+- **Attach any file** — click the 📎 paperclip button to browse and select files
+- **Paste images** from clipboard directly into the write box (Ctrl+V / ⌘+V)
+- **Drag & drop** files or images onto the input area
+- **Up to 5 attachments per note**, max 20 MB each
+- **Inline image display** — images render inside the note bubble; tap to open fullscreen lightbox
+- **File download cards** — PDF, Word, Excel, text, JSON shown as tappable cards with icon, name, and size
+- **Supported types:** JPEG, PNG, GIF, WebP (images) · PDF · DOC/DOCX (Word) · XLS/XLSX (Excel) · TXT, CSV, JSON
+- **Files stored in `media/` folder** — raw files, served directly, PHP execution blocked by `.htaccess`
+- **Delete note = delete files** — attached media files are removed from disk when a note is deleted
+- **Text + attachment** in the same note — caption text shown below the attachment
 
 ### 🔍 Search
 - **Live full-text search** across all notes as you type
@@ -301,6 +313,18 @@ The service worker and PWA install prompt **only work over HTTPS**. Most hosts p
 ---
 
 ## 📋 Changelog
+
+### v1.4.0 — File & Media Attachments
+- **📎 Attach files** — paperclip button, clipboard paste, and drag & drop in the input area
+- **Images inline** in note bubbles; tap / click to open fullscreen lightbox
+- **File download cards** for PDF, Word, Excel, TXT, CSV, JSON — icon, name, size, one-click download
+- **Supported:** JPEG, PNG, GIF, WebP, PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, JSON
+- Up to **5 files per note**, **20 MB** each (`MAX_FILES` / `MAX_FILE_SIZE` configurable in config.php)
+- Files stored in `media/` folder (gitignored); PHP execution blocked by auto-created `.htaccess`
+- Deleting a note also deletes its media files from disk
+- Note submission converted from page-reload to **AJAX** — sends text + files without page refresh
+- New `uploadMedia()`, `ensureMediaDir()`, `fileIconEmoji()`, `formatFileSize()` in `config.php`
+- `.user.ini` updated to allow up to 25 MB file uploads
 
 ### v1.3.0 — Categories & Starred Notes
 - **Star any note** — ☆ icon per note toggles ⭐ amber; state stored in encrypted data file

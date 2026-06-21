@@ -41,6 +41,20 @@ define('ACCENT_COLOR', '#6c63ff');
 define('BUBBLE_BG',   '#ffffff');   // bubble background color
 define('BUBBLE_TEXT', '#1e1e2e');  // bubble text color
 
+// ── Media uploads ─────────────────────────────────────────────────────────────
+define('MEDIA_DIR',     __DIR__ . '/media');
+define('MAX_FILE_SIZE', 20 * 1024 * 1024);   // 20 MB per file
+define('MAX_FILES',     5);                   // max attachments per note
+define('ALLOWED_MIME', [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain', 'text/csv', 'application/json',
+]);
+
 // ── Derive 32-byte AES-256 key from passphrase ────────────────────────────────
 function getEncryptKey(): string {
     return hash('sha256', ENCRYPT_SECRET, true); // 32 raw bytes
@@ -87,10 +101,10 @@ function fetchNotes(): array {
 }
 
 // ── Insert a new note ─────────────────────────────────────────────────────────
-function insertNote(string $note, string $ip, string $browser, string $location): void {
+function insertNote(string $note, string $ip, string $browser, string $location, array $attachments = []): void {
     $notes = loadNotes();
     $maxId = empty($notes) ? 0 : max(array_column($notes, 'Id'));
-    $notes[] = [
+    $entry = [
         'Id'       => $maxId + 1,
         'Note'     => $note,
         'DateTime' => date('Y-m-d H:i:s'),
@@ -99,12 +113,27 @@ function insertNote(string $note, string $ip, string $browser, string $location)
         'Location' => $location,
         'Category' => 'general',
     ];
+    if (!empty($attachments)) {
+        $entry['Attachments'] = $attachments;
+    }
+    $notes[] = $entry;
     saveNotes($notes);
 }
 
-// ── Delete a note by Id ───────────────────────────────────────────────────────
+// ── Delete a note by Id (also removes attached media files) ──────────────────
 function deleteNote(int $id): void {
     $notes = loadNotes();
+    foreach ($notes as $n) {
+        if ((int)$n['Id'] === $id) {
+            foreach ($n['Attachments'] ?? [] as $att) {
+                $path = MEDIA_DIR . '/' . ($att['filename'] ?? '');
+                if (!empty($att['filename']) && file_exists($path)) {
+                    @unlink($path);
+                }
+            }
+            break;
+        }
+    }
     $notes = array_values(array_filter($notes, function($n) use ($id) {
         return (int)$n['Id'] !== $id;
     }));
@@ -140,6 +169,92 @@ function setNoteCategory(int $id, string $category): string {
     unset($n);
     saveNotes($notes);
     return $newCat;
+}
+
+// ── Ensure media/ directory exists with PHP-execution blocked ────────────────
+function ensureMediaDir(): void {
+    if (!is_dir(MEDIA_DIR)) {
+        mkdir(MEDIA_DIR, 0755, true);
+    }
+    $htaccess = MEDIA_DIR . '/.htaccess';
+    if (!file_exists($htaccess)) {
+        file_put_contents($htaccess,
+            "Options -Indexes -ExecCGI\n" .
+            "<FilesMatch \"\\.php$\">\n" .
+            "  Require all denied\n" .
+            "</FilesMatch>\n"
+        );
+    }
+}
+
+// ── Upload a single file to media/ and return its metadata ───────────────────
+function uploadMedia(array $file): array {
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $msgs = [
+            UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload limit',
+            UPLOAD_ERR_FORM_SIZE  => 'File exceeds form size limit',
+            UPLOAD_ERR_PARTIAL    => 'File only partially uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing temp folder on server',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write to disk',
+        ];
+        throw new RuntimeException($msgs[$file['error']] ?? 'Upload error #' . $file['error']);
+    }
+    if ($file['size'] > MAX_FILE_SIZE) {
+        throw new RuntimeException('File too large (max ' . (MAX_FILE_SIZE / 1024 / 1024) . ' MB)');
+    }
+
+    // Detect real MIME from file content, not from the browser header
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime  = $finfo->file($file['tmp_name']);
+
+    if (!in_array($mime, ALLOWED_MIME, true)) {
+        throw new RuntimeException('File type not allowed: ' . $mime);
+    }
+
+    static $extMap = [
+        'image/jpeg'   => 'jpg',  'image/png'  => 'png',
+        'image/gif'    => 'gif',  'image/webp' => 'webp',
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-excel' => 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'text/plain'   => 'txt',  'text/csv'  => 'csv',
+        'application/json' => 'json',
+    ];
+
+    $ext      = $extMap[$mime] ?? 'bin';
+    $filename = bin2hex(random_bytes(12)) . '.' . $ext;
+
+    ensureMediaDir();
+
+    if (!move_uploaded_file($file['tmp_name'], MEDIA_DIR . '/' . $filename)) {
+        throw new RuntimeException('Failed to save uploaded file');
+    }
+
+    return [
+        'filename' => $filename,
+        'original' => mb_substr(basename($file['name']), 0, 200),
+        'mime'     => $mime,
+        'size'     => (int)$file['size'],
+    ];
+}
+
+// ── File display helpers ──────────────────────────────────────────────────────
+function fileIconEmoji(string $mime): string {
+    if (strpos($mime, 'image/') === 0)                       return '🖼';
+    if ($mime === 'application/pdf')                         return '📄';
+    if (strpos($mime, 'word') !== false)                     return '📝';
+    if (strpos($mime, 'excel') !== false || strpos($mime, 'spreadsheet') !== false || $mime === 'text/csv') return '📊';
+    if ($mime === 'text/plain')                              return '📃';
+    if ($mime === 'application/json')                        return '🔧';
+    return '📎';
+}
+
+function formatFileSize(int $bytes): string {
+    if ($bytes < 1024)               return $bytes . ' B';
+    if ($bytes < 1024 * 1024)       return round($bytes / 1024, 1) . ' KB';
+    return round($bytes / (1024 * 1024), 1) . ' MB';
 }
 
 // ── Verify login password ─────────────────────────────────────────────────────

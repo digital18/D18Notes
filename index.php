@@ -6,8 +6,6 @@ if (empty($_SESSION['logged_in'])) {
     exit;
 }
 
-$postError = '';
-
 // Delete note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
@@ -52,16 +50,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'star'
     exit;
 }
 
-// Add note
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note'])) {
-    $note = trim($_POST['note'] ?? '');
-    if ($note !== '') {
-        insertNote($note, getClientIP(), getBrowser(), getLocation(getClientIP()));
-        header('Location: index.php');
-        exit;
-    } else {
-        $postError = 'Note cannot be empty.';
+// Add note (AJAX, supports text + file attachments)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add') {
+    $note        = trim($_POST['note'] ?? '');
+    $attachments = [];
+
+    if (!empty($_FILES['files']['name'][0])) {
+        $f     = $_FILES['files'];
+        $count = min(count($f['name']), MAX_FILES);
+        for ($i = 0; $i < $count; $i++) {
+            if ((int)$f['error'][$i] === UPLOAD_ERR_NO_FILE) continue;
+            try {
+                $attachments[] = uploadMedia([
+                    'name'     => $f['name'][$i],
+                    'type'     => $f['type'][$i],
+                    'tmp_name' => $f['tmp_name'][$i],
+                    'error'    => $f['error'][$i],
+                    'size'     => $f['size'][$i],
+                ]);
+            } catch (RuntimeException $e) {
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+        }
     }
+
+    if ($note !== '' || !empty($attachments)) {
+        $ip = getClientIP();
+        insertNote($note, $ip, getBrowser(), getLocation($ip), $attachments);
+        $allNotes = fetchNotes();
+        $newNote  = end($allNotes);
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => true, 'note' => $newNote]);
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => 'Nothing to save.']);
+    }
+    exit;
 }
 
 $notes          = fetchNotes();
@@ -1001,6 +1027,220 @@ $bubbleText     = BUBBLE_TEXT;
   }
   .filter-empty .fe-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.35; }
   .filter-empty p { font-size: 0.9rem; }
+
+  /* ── Attach button ───────────────────────── */
+  .attach-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 1.3rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+  .attach-btn:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+  /* ── Attachment preview strip ────────────── */
+  .attach-strip {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+
+  .attach-preview-img {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1.5px solid var(--border);
+    background: var(--input-bg);
+  }
+  .attach-preview-img img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .attach-preview-file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.78rem;
+    color: var(--text);
+    max-width: 200px;
+    position: relative;
+  }
+  .attach-preview-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .attach-remove {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 18px; height: 18px;
+    background: rgba(0,0,0,0.55);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 0.6rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    z-index: 1;
+    padding: 0;
+    font-family: inherit;
+  }
+  .attach-remove:hover { background: #ef4444; }
+
+  /* ── Drag-over state ─────────────────────── */
+  .input-area.drag-over {
+    outline: 2px dashed var(--accent);
+    outline-offset: -6px;
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  }
+
+  /* ── Note images ─────────────────────────── */
+  .note-img-wrap { display: block; margin-bottom: 6px; }
+  .note-img-wrap:last-child { margin-bottom: 0; }
+
+  .note-img {
+    display: block;
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 10px;
+    cursor: zoom-in;
+    object-fit: contain;
+    transition: opacity 0.2s;
+  }
+  .note-img:hover { opacity: 0.9; }
+
+  /* ── Note file card ──────────────────────── */
+  .note-file-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--text);
+    margin-bottom: 6px;
+    transition: background 0.15s;
+  }
+  .note-file-card:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .note-file-card:last-child { margin-bottom: 0; }
+  .file-card-icon { font-size: 1.5rem; flex-shrink: 0; line-height: 1; }
+  .file-card-info { flex: 1; min-width: 0; }
+  .file-card-name {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .file-card-size {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .file-card-dl { color: var(--accent); font-size: 1rem; flex-shrink: 0; }
+
+  /* Space between attachments and note text */
+  .note-text-body { margin-top: 8px; }
+
+  /* ── Lightbox ────────────────────────────── */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 600;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    padding: 20px;
+    backdrop-filter: blur(6px);
+  }
+  #lightbox.open { display: flex; }
+
+  #lightboxImg {
+    max-width: 100%;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  #lightboxCaption {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.65);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  #lightboxClose {
+    position: fixed;
+    top: 14px; right: 14px;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    border-radius: 50%;
+    width: 38px; height: 38px;
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    z-index: 601;
+    font-family: inherit;
+  }
+  #lightboxClose:hover { background: rgba(255,255,255,0.22); }
+
+  /* ── Upload error banner ─────────────────── */
+  .upload-error {
+    max-width: 900px;
+    margin: 0 auto 8px;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.28);
+    color: #ef4444;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 10px;
+    display: none;
+  }
 </style>
 </head>
 <body class="<?= $bodyClass ?>">
@@ -1068,9 +1308,35 @@ $bubbleText     = BUBBLE_TEXT;
       <div class="date-sep"><?= htmlspecialchars($label) ?></div>
     <?php endif; ?>
 
-    <?php $noteCat = $note['Category'] ?? 'general'; ?>
+    <?php
+      $noteCat  = $note['Category'] ?? 'general';
+      $noteAtts = $note['Attachments'] ?? [];
+    ?>
     <div class="note-wrapper" id="note-<?= (int)$note['Id'] ?>" data-category="<?= htmlspecialchars($noteCat, ENT_QUOTES) ?>">
-      <div class="note-bubble"><?= nl2br(htmlspecialchars($note['Note'])) ?></div>
+      <div class="note-bubble">
+        <?php foreach ($noteAtts as $att): ?>
+          <?php if (strpos($att['mime'], 'image/') === 0): ?>
+            <a class="note-img-wrap" href="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>" target="_blank"
+               onclick="event.preventDefault(); openLightbox('media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>', '<?= htmlspecialchars($att['original'], ENT_QUOTES) ?>')">
+              <img class="note-img" src="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>"
+                   alt="<?= htmlspecialchars($att['original']) ?>" loading="lazy">
+            </a>
+          <?php else: ?>
+            <a class="note-file-card" href="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>"
+               download="<?= htmlspecialchars($att['original'], ENT_QUOTES) ?>" target="_blank">
+              <span class="file-card-icon"><?= fileIconEmoji($att['mime']) ?></span>
+              <div class="file-card-info">
+                <span class="file-card-name"><?= htmlspecialchars($att['original']) ?></span>
+                <span class="file-card-size"><?= formatFileSize((int)$att['size']) ?></span>
+              </div>
+              <span class="file-card-dl">⬇</span>
+            </a>
+          <?php endif; ?>
+        <?php endforeach; ?>
+        <?php if ($note['Note'] !== ''): ?>
+          <div class="note-text-body"><?= nl2br(htmlspecialchars($note['Note'])) ?></div>
+        <?php endif; ?>
+      </div>
 
       <div class="note-actions">
         <span class="note-time"><?= $dt->format('h:i A') ?></span>
@@ -1146,17 +1412,28 @@ $bubbleText     = BUBBLE_TEXT;
 <!-- Floating "new notes" button -->
 <button id="newNoteBtn" onclick="scrollToBottom()">⬇ New notes</button>
 
-<!-- Input area -->
-<div class="input-area">
-  <?php if ($postError): ?>
-    <div class="error-banner"><?= htmlspecialchars($postError) ?></div>
-  <?php endif; ?>
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightboxClose" onclick="event.stopPropagation(); closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt="">
+  <div id="lightboxCaption"></div>
+</div>
 
-  <form method="POST" action="index.php" class="input-inner" id="noteForm">
+<!-- Input area -->
+<div class="input-area" id="inputArea">
+  <div class="attach-strip" id="attachStrip" style="display:none"></div>
+  <div class="upload-error" id="uploadError"></div>
+
+  <form method="POST" action="index.php" class="input-inner" id="noteForm" enctype="multipart/form-data">
+    <input type="hidden" name="action" value="add">
+    <input type="file" id="fileInput" name="files[]" multiple
+      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.json"
+      style="display:none">
+    <button type="button" class="attach-btn" id="attachBtn" title="Attach file (📎)">📎</button>
     <textarea
       id="noteInput"
       name="note"
-      placeholder="Write a note… (Shift+Enter for new line, Enter to send)"
+      placeholder="Write a note, paste an image, or drop a file…"
       rows="1"
       autofocus
     ></textarea>
@@ -1200,7 +1477,7 @@ $bubbleText     = BUBBLE_TEXT;
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (ta.value.trim()) document.getElementById('noteForm').submit();
+      submitNote();
     }
   });
 
@@ -1208,10 +1485,11 @@ $bubbleText     = BUBBLE_TEXT;
   const notesData = [
     <?php foreach ($notes as $n): ?>
     {
-      id:       <?= (int)$n['Id'] ?>,
-      text:     <?= json_encode($n['Note']) ?>,
-      datetime: <?= json_encode($n['DateTime']) ?>,
-      category: <?= json_encode($n['Category'] ?? 'general') ?>
+      id:          <?= (int)$n['Id'] ?>,
+      text:        <?= json_encode($n['Note']) ?>,
+      datetime:    <?= json_encode($n['DateTime']) ?>,
+      category:    <?= json_encode($n['Category'] ?? 'general') ?>,
+      attachments: <?= json_encode($n['Attachments'] ?? []) ?>
     },
     <?php endforeach; ?>
   ];
@@ -1381,10 +1659,50 @@ $bubbleText     = BUBBLE_TEXT;
     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   }
 
+  // ── Attachment helpers ──────────────────────────────────────────────────────
+  function jsFileIcon(mime) {
+    if (mime.startsWith('image/'))           return '🖼';
+    if (mime === 'application/pdf')          return '📄';
+    if (mime.includes('word'))               return '📝';
+    if (mime.includes('excel') || mime.includes('spreadsheet') || mime === 'text/csv') return '📊';
+    if (mime === 'text/plain')               return '📃';
+    if (mime === 'application/json')         return '🔧';
+    return '📎';
+  }
+
+  function jsFormatSize(bytes) {
+    if (bytes < 1024)             return bytes + ' B';
+    if (bytes < 1024 * 1024)     return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function buildAttachmentsHTML(attachments) {
+    if (!attachments || !attachments.length) return '';
+    return attachments.map(att => {
+      if (att.mime.startsWith('image/')) {
+        return `<a class="note-img-wrap" href="media/${escapeAttr(att.filename)}" target="_blank"
+          onclick="event.preventDefault(); openLightbox('media/${escapeAttr(att.filename)}', '${escapeAttr(att.original)}')">
+          <img class="note-img" src="media/${escapeAttr(att.filename)}" alt="${escapeAttr(att.original)}" loading="lazy">
+        </a>`;
+      }
+      return `<a class="note-file-card" href="media/${escapeAttr(att.filename)}"
+        download="${escapeAttr(att.original)}" target="_blank">
+        <span class="file-card-icon">${jsFileIcon(att.mime)}</span>
+        <div class="file-card-info">
+          <span class="file-card-name">${escapeHtml(att.original)}</span>
+          <span class="file-card-size">${jsFormatSize(att.size)}</span>
+        </div>
+        <span class="file-card-dl">⬇</span>
+      </a>`;
+    }).join('');
+  }
+
   function buildNoteHTML(n) {
-    const cat       = n.Category || 'general';
-    const isStarred = cat === 'star';
-    const noteText  = escapeHtml(n.Note).replace(/\n/g, '<br>');
+    const cat         = n.Category || 'general';
+    const isStarred   = cat === 'star';
+    const attachHTML  = buildAttachmentsHTML(n.Attachments || []);
+    const noteText    = n.Note ? escapeHtml(n.Note).replace(/\n/g, '<br>') : '';
+    const bubbleInner = attachHTML + (noteText ? `<div class="note-text-body">${noteText}</div>` : '');
 
     const infoRows = [
       n.IP       ? `<div class="info-row"><span class="i-ico">🌐</span><span class="i-val">${escapeHtml(n.IP)}</span></div>`       : '',
@@ -1408,7 +1726,7 @@ $bubbleText     = BUBBLE_TEXT;
 
     return `
       <div class="note-wrapper" id="note-${n.Id}" data-category="${escapeAttr(cat)}">
-        <div class="note-bubble">${noteText}</div>
+        <div class="note-bubble">${bubbleInner}</div>
         <div class="note-actions">
           <span class="note-time">${formatTime(n.DateTime)}</span>
           <div class="action-icons">
@@ -1459,7 +1777,7 @@ $bubbleText     = BUBBLE_TEXT;
         chat.insertBefore(div.firstElementChild, bottom);
 
         // Add to search index
-        notesData.push({ id: parseInt(n.Id), text: n.Note, datetime: n.DateTime, category: n.Category || 'general' });
+        notesData.push({ id: parseInt(n.Id), text: n.Note, datetime: n.DateTime, category: n.Category || 'general', attachments: n.Attachments || [] });
 
         lastNoteId = Math.max(lastNoteId, parseInt(n.Id));
         noteCount++;
@@ -1840,6 +2158,200 @@ $bubbleText     = BUBBLE_TEXT;
     if (!window.getSelection()?.toString().trim()) {
       hideCopyTooltip(200);
     }
+  });
+
+  // ── File attachments ────────────────────────────────────────────────────────
+  const ALLOWED_TYPES = [
+    'image/jpeg','image/png','image/gif','image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain','text/csv','application/json',
+  ];
+  const MAX_ATTACH    = 5;
+  const MAX_BYTES     = 20 * 1024 * 1024;
+
+  let pendingFiles = []; // [{file, previewURL}]
+
+  const attachBtn   = document.getElementById('attachBtn');
+  const fileInput   = document.getElementById('fileInput');
+  const attachStrip = document.getElementById('attachStrip');
+  const uploadError = document.getElementById('uploadError');
+  const inputArea   = document.getElementById('inputArea');
+  const noteForm    = document.getElementById('noteForm');
+
+  attachBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    addFiles(Array.from(fileInput.files));
+    fileInput.value = '';
+  });
+
+  function addFiles(files) {
+    let errMsg = '';
+    for (const f of files) {
+      if (pendingFiles.length >= MAX_ATTACH) { errMsg = `Max ${MAX_ATTACH} files per note.`; break; }
+      if (!ALLOWED_TYPES.includes(f.type))   { errMsg = `"${f.name}" — type not allowed.`; continue; }
+      if (f.size > MAX_BYTES)                { errMsg = `"${f.name}" — max 20 MB per file.`; continue; }
+      const url = f.type.startsWith('image/') ? URL.createObjectURL(f) : null;
+      pendingFiles.push({ file: f, previewURL: url });
+    }
+    showUploadError(errMsg);
+    renderAttachStrip();
+  }
+
+  function removeFile(idx) {
+    if (pendingFiles[idx]?.previewURL) URL.revokeObjectURL(pendingFiles[idx].previewURL);
+    pendingFiles.splice(idx, 1);
+    renderAttachStrip();
+  }
+
+  function renderAttachStrip() {
+    if (!pendingFiles.length) {
+      attachStrip.style.display = 'none';
+      attachStrip.innerHTML = '';
+      return;
+    }
+    attachStrip.style.display = 'flex';
+    attachStrip.innerHTML = pendingFiles.map((pf, i) => {
+      if (pf.previewURL) {
+        return `<div class="attach-preview-img">
+          <img src="${pf.previewURL}" alt="${escapeHtml(pf.file.name)}">
+          <button type="button" class="attach-remove" onclick="removeFile(${i})" title="Remove">✕</button>
+        </div>`;
+      }
+      return `<div class="attach-preview-file">
+        <span>${jsFileIcon(pf.file.type)}</span>
+        <span class="attach-preview-name" title="${escapeHtml(pf.file.name)}">${escapeHtml(pf.file.name)}</span>
+        <button type="button" class="attach-remove" style="position:static;background:none;color:#ef4444;font-size:0.75rem;width:auto;height:auto;border-radius:0;" onclick="removeFile(${i})" title="Remove">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  function showUploadError(msg) {
+    uploadError.textContent = msg;
+    uploadError.style.display = msg ? 'block' : 'none';
+  }
+
+  // Paste image from clipboard
+  ta.addEventListener('paste', (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'));
+    if (!imageItems.length) return;
+    e.preventDefault();
+    addFiles(imageItems.map(it => it.getAsFile()));
+  });
+
+  // Drag and drop files onto input area
+  inputArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    inputArea.classList.add('drag-over');
+  });
+  inputArea.addEventListener('dragleave', (e) => {
+    if (!inputArea.contains(e.relatedTarget)) inputArea.classList.remove('drag-over');
+  });
+  inputArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    inputArea.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) addFiles(files);
+  });
+
+  // ── AJAX note submission ─────────────────────────────────────────────────────
+  noteForm.addEventListener('submit', (e) => { e.preventDefault(); submitNote(); });
+
+  async function submitNote() {
+    const text = ta.value.trim();
+    if (!text && !pendingFiles.length) return;
+
+    const sendBtn = noteForm.querySelector('.send-btn');
+    sendBtn.disabled  = true;
+    sendBtn.innerHTML = '…';
+    showUploadError('');
+
+    try {
+      const fd = new FormData();
+      fd.append('action', 'add');
+      fd.append('note',   ta.value.trim());
+      pendingFiles.forEach(pf => fd.append('files[]', pf.file));
+
+      const res  = await fetch('index.php', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (!data.ok) {
+        showUploadError(data.error || 'Failed to save note.');
+        return;
+      }
+
+      // Clear inputs
+      ta.value = '';
+      ta.style.height = 'auto';
+      pendingFiles.forEach(pf => { if (pf.previewURL) URL.revokeObjectURL(pf.previewURL); });
+      pendingFiles = [];
+      renderAttachStrip();
+
+      // Render new note immediately (don't wait for the 4s poll)
+      const n      = data.note;
+      const bottom = document.getElementById('bottom');
+      const chat2  = document.getElementById('chatArea');
+
+      const empty = chat2.querySelector('.empty-state');
+      if (empty) empty.remove();
+
+      const noteDay = noteDate(n.DateTime);
+      if (noteDay !== lastShownDate) {
+        lastShownDate = noteDay;
+        const sep = document.createElement('div');
+        sep.className   = 'date-sep';
+        sep.textContent = dateLabel(n.DateTime);
+        chat2.insertBefore(sep, bottom);
+      }
+
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = buildNoteHTML(n).trim();
+      chat2.insertBefore(wrapper.firstElementChild, bottom);
+
+      notesData.push({ id: parseInt(n.Id), text: n.Note, datetime: n.DateTime, category: n.Category || 'general', attachments: n.Attachments || [] });
+      lastNoteId = Math.max(lastNoteId, parseInt(n.Id));
+      noteCount++;
+
+      document.querySelector('.note-count').textContent =
+        noteCount + ' note' + (noteCount !== 1 ? 's' : '');
+
+      applyFilter();
+      chat2.scrollTo({ top: chat2.scrollHeight, behavior: 'smooth' });
+
+    } catch (err) {
+      showUploadError('Network error — please try again.');
+      console.error('submitNote failed:', err);
+    } finally {
+      sendBtn.disabled  = false;
+      sendBtn.innerHTML = '&#9658;';
+    }
+  }
+
+  // ── Lightbox ─────────────────────────────────────────────────────────────────
+  const lightbox    = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lightboxCap = document.getElementById('lightboxCaption');
+
+  function openLightbox(src, caption) {
+    lightboxImg.src    = src;
+    lightboxImg.alt    = caption;
+    lightboxCap.textContent = caption;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightboxImg.src = '';
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
   });
 </script>
 </body>
