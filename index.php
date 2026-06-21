@@ -30,6 +30,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
     exit;
 }
 
+// Star / unstar note (AJAX)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'star') {
+    $id      = (int)($_POST['id'] ?? 0);
+    $newCat  = 'general';
+    if ($id > 0) {
+        $notes = loadNotes();
+        foreach ($notes as &$n) {
+            if ((int)$n['Id'] === $id) {
+                $current = $n['Category'] ?? 'general';
+                $newCat  = ($current === 'star') ? 'general' : 'star';
+                $n['Category'] = $newCat;
+                break;
+            }
+        }
+        unset($n);
+        saveNotes($notes);
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true, 'category' => $newCat]);
+    exit;
+}
+
 // Add note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note'])) {
     $note = trim($_POST['note'] ?? '');
@@ -742,6 +764,8 @@ $bubbleText     = BUBBLE_TEXT;
     header        { padding: 12px 14px; }
     .search-bar   { padding: 8px 12px; }
     .search-results { left: 12px; right: 12px; }
+    .filter-bar   { padding: 0 12px; }
+    .filter-tab   { padding: 9px 12px; }
     .chat-area    { padding: 16px 10px 10px; }
     .input-area   { padding: 10px; }
   }
@@ -751,6 +775,7 @@ $bubbleText     = BUBBLE_TEXT;
     .input-area { padding: 16px 12%; }
     .search-bar { padding: 10px 12%; }
     .search-results { left: 12%; right: 12%; }
+    .filter-bar { padding: 0 12%; }
   }
 
   /* ── Edit Modal ──────────────────────────── */
@@ -930,6 +955,52 @@ $bubbleText     = BUBBLE_TEXT;
   [data-theme="dark"] .btn-modal-cancel { background: rgba(255,255,255,0.08); color: var(--muted); }
   [data-theme="dark"] .btn-modal-cancel:hover { background: rgba(255,255,255,0.14); }
   [data-theme="dark"] #searchClear:hover { background: rgba(255,255,255,0.08); }
+
+  /* ── Filter tabs ─────────────────────────── */
+  .filter-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    z-index: 14;
+  }
+
+  .filter-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    padding: 9px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--muted);
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .filter-tab:hover  { color: var(--text); }
+  .filter-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Star button ─────────────────────────── */
+  .star-btn { color: var(--muted); }
+  .star-btn:hover { background: rgba(245,158,11,0.1) !important; color: #f59e0b !important; opacity: 1 !important; }
+  .star-btn.starred { color: #f59e0b; opacity: 1 !important; }
+
+  /* ── Filter empty state ──────────────────── */
+  .filter-empty {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    text-align: center;
+    padding: 48px 20px;
+  }
+  .filter-empty .fe-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.35; }
+  .filter-empty p { font-size: 0.9rem; }
 </style>
 </head>
 <body class="<?= $bodyClass ?>">
@@ -962,6 +1033,13 @@ $bubbleText     = BUBBLE_TEXT;
   <div class="search-results" id="searchResults"></div>
 </div>
 
+<!-- Filter tabs -->
+<div class="filter-bar">
+  <button class="filter-tab active" data-filter="all">All</button>
+  <button class="filter-tab" data-filter="general">General</button>
+  <button class="filter-tab" data-filter="star">⭐ Starred</button>
+</div>
+
 <!-- Chat window -->
 <div class="chat-area" id="chatArea">
 
@@ -990,7 +1068,8 @@ $bubbleText     = BUBBLE_TEXT;
       <div class="date-sep"><?= htmlspecialchars($label) ?></div>
     <?php endif; ?>
 
-    <div class="note-wrapper" id="note-<?= (int)$note['Id'] ?>">
+    <?php $noteCat = $note['Category'] ?? 'general'; ?>
+    <div class="note-wrapper" id="note-<?= (int)$note['Id'] ?>" data-category="<?= htmlspecialchars($noteCat, ENT_QUOTES) ?>">
       <div class="note-bubble"><?= nl2br(htmlspecialchars($note['Note'])) ?></div>
 
       <div class="note-actions">
@@ -1014,6 +1093,12 @@ $bubbleText     = BUBBLE_TEXT;
           </div>
           <?php endif; ?>
 
+          <button type="button" class="icon-btn star-btn<?= ($noteCat === 'star') ? ' starred' : '' ?>"
+            data-id="<?= (int)$note['Id'] ?>"
+            title="<?= ($noteCat === 'star') ? 'Unstar note' : 'Star note' ?>">
+            <?= ($noteCat === 'star') ? '⭐' : '☆' ?>
+          </button>
+
           <button type="button" class="icon-btn edit-btn" title="Edit note"
             data-id="<?= (int)$note['Id'] ?>"
             data-note="<?= htmlspecialchars($note['Note'], ENT_QUOTES) ?>"
@@ -1032,6 +1117,11 @@ $bubbleText     = BUBBLE_TEXT;
     <?php endforeach; ?>
 
   <?php endif; ?>
+
+  <div id="filterEmpty" class="filter-empty">
+    <div class="fe-icon">⭐</div>
+    <p id="filterEmptyMsg">No starred notes yet.</p>
+  </div>
 
   <div id="bottom"></div>
 </div>
@@ -1120,7 +1210,8 @@ $bubbleText     = BUBBLE_TEXT;
     {
       id:       <?= (int)$n['Id'] ?>,
       text:     <?= json_encode($n['Note']) ?>,
-      datetime: <?= json_encode($n['DateTime']) ?>
+      datetime: <?= json_encode($n['DateTime']) ?>,
+      category: <?= json_encode($n['Category'] ?? 'general') ?>
     },
     <?php endforeach; ?>
   ];
@@ -1291,7 +1382,9 @@ $bubbleText     = BUBBLE_TEXT;
   }
 
   function buildNoteHTML(n) {
-    const noteText = escapeHtml(n.Note).replace(/\n/g, '<br>');
+    const cat       = n.Category || 'general';
+    const isStarred = cat === 'star';
+    const noteText  = escapeHtml(n.Note).replace(/\n/g, '<br>');
 
     const infoRows = [
       n.IP       ? `<div class="info-row"><span class="i-ico">🌐</span><span class="i-val">${escapeHtml(n.IP)}</span></div>`       : '',
@@ -1305,18 +1398,22 @@ $bubbleText     = BUBBLE_TEXT;
         <div class="info-tooltip">${infoRows}</div>
       </div>` : '';
 
+    const starBtn = `<button type="button" class="icon-btn star-btn${isStarred ? ' starred' : ''}"
+      data-id="${n.Id}" title="${isStarred ? 'Unstar note' : 'Star note'}">${isStarred ? '⭐' : '☆'}</button>`;
+
     const editBtn = `<button type="button" class="icon-btn edit-btn" title="Edit note"
       data-id="${n.Id}"
       data-note="${escapeAttr(n.Note)}"
       data-dt="${escapeAttr(n.DateTime)}">✏️</button>`;
 
     return `
-      <div class="note-wrapper" id="note-${n.Id}">
+      <div class="note-wrapper" id="note-${n.Id}" data-category="${escapeAttr(cat)}">
         <div class="note-bubble">${noteText}</div>
         <div class="note-actions">
           <span class="note-time">${formatTime(n.DateTime)}</span>
           <div class="action-icons">
             ${infoBtn}
+            ${starBtn}
             ${editBtn}
             <form method="POST" action="index.php" onsubmit="return confirm('Delete this note?')" style="display:contents">
               <input type="hidden" name="action" value="delete">
@@ -1362,7 +1459,7 @@ $bubbleText     = BUBBLE_TEXT;
         chat.insertBefore(div.firstElementChild, bottom);
 
         // Add to search index
-        notesData.push({ id: parseInt(n.Id), text: n.Note, datetime: n.DateTime });
+        notesData.push({ id: parseInt(n.Id), text: n.Note, datetime: n.DateTime, category: n.Category || 'general' });
 
         lastNoteId = Math.max(lastNoteId, parseInt(n.Id));
         noteCount++;
@@ -1371,6 +1468,9 @@ $bubbleText     = BUBBLE_TEXT;
       // Update count badge
       document.querySelector('.note-count').textContent =
         noteCount + ' note' + (noteCount !== 1 ? 's' : '');
+
+      // Apply active filter to newly inserted notes
+      applyFilter();
 
       // Scroll or show button
       if (wasAtBot) {
@@ -1448,6 +1548,13 @@ $bubbleText     = BUBBLE_TEXT;
       if (!isOpen) wrap.classList.add('show');
       return;
     }
+    // Star button
+    const starBtn = e.target.closest('.star-btn');
+    if (starBtn) {
+      e.stopPropagation();
+      toggleStar(parseInt(starBtn.dataset.id), starBtn);
+      return;
+    }
     // Edit button
     const editBtn = e.target.closest('.edit-btn');
     if (editBtn) {
@@ -1464,6 +1571,81 @@ $bubbleText     = BUBBLE_TEXT;
       document.querySelectorAll('.info-wrap.show').forEach(w => w.classList.remove('show'));
     }
   });
+
+  // ── Star toggle ─────────────────────────────────────────────────────────────
+  async function toggleStar(id, btn) {
+    const fd = new FormData();
+    fd.append('action', 'star');
+    fd.append('id', id);
+    try {
+      const res  = await fetch('index.php', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.ok) {
+        const isNowStar = data.category === 'star';
+        const wrapper   = document.getElementById('note-' + id);
+        if (wrapper) {
+          wrapper.dataset.category = data.category;
+          const sb = wrapper.querySelector('.star-btn');
+          if (sb) {
+            sb.classList.toggle('starred', isNowStar);
+            sb.title       = isNowStar ? 'Unstar note' : 'Star note';
+            sb.textContent = isNowStar ? '⭐' : '☆';
+          }
+        }
+        const idx = notesData.findIndex(n => n.id === id);
+        if (idx >= 0) notesData[idx].category = data.category;
+        applyFilter();
+      }
+    } catch (err) { console.error('Star toggle failed:', err); }
+  }
+
+  // ── Filter tabs ─────────────────────────────────────────────────────────────
+  let activeFilter = 'all';
+
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      activeFilter = tab.dataset.filter;
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === tab));
+      applyFilter();
+    });
+  });
+
+  function applyFilter() {
+    let visible = 0;
+    document.querySelectorAll('.note-wrapper').forEach(w => {
+      const cat  = w.dataset.category || 'general';
+      const show = activeFilter === 'all' || cat === activeFilter;
+      w.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    manageDateSeparators();
+
+    const fe  = document.getElementById('filterEmpty');
+    const msg = document.getElementById('filterEmptyMsg');
+    if (visible === 0 && noteCount > 0) {
+      fe.style.display = 'flex';
+      msg.textContent  = activeFilter === 'star'
+        ? 'No starred notes yet. Tap ☆ on any note to star it.'
+        : 'No notes in this category.';
+    } else {
+      fe.style.display = 'none';
+    }
+  }
+
+  function manageDateSeparators() {
+    document.querySelectorAll('.date-sep').forEach(sep => {
+      let sib  = sep.nextElementSibling;
+      let seen = false;
+      while (sib && !sib.classList.contains('date-sep')) {
+        if (sib.classList.contains('note-wrapper') && sib.style.display !== 'none') {
+          seen = true; break;
+        }
+        sib = sib.nextElementSibling;
+      }
+      sep.style.display = seen ? '' : 'none';
+    });
+  }
 
   // ── Edit modal ──────────────────────────────────────────────────────────────
   let editingId = null;

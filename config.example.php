@@ -111,6 +111,7 @@ function insertNote(string $note, string $ip, string $browser, string $location)
         'IP'       => $ip,
         'Browser'  => $browser,
         'Location' => $location,
+        'Category' => 'general',
     ];
     saveNotes($notes);
 }
@@ -136,6 +137,22 @@ function updateNote(int $id, string $note, string $dateTime): void {
     }
     unset($n);
     saveNotes($notes);
+}
+
+// ── Toggle a note's category between 'general' and 'star' ────────────────────
+function setNoteCategory(int $id, string $category): string {
+    $allowed = ['general', 'star'];
+    if (!in_array($category, $allowed, true)) return 'general';
+    $notes  = loadNotes();
+    foreach ($notes as &$n) {
+        if ((int)$n['Id'] === $id) {
+            $n['Category'] = $category;
+            break;
+        }
+    }
+    unset($n);
+    saveNotes($notes);
+    return $category;
 }
 
 // ── Verify login password ─────────────────────────────────────────────────────

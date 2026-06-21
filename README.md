@@ -10,7 +10,7 @@
 [![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Encryption](https://img.shields.io/badge/Encryption-AES--256--CBC-22c55e)](https://www.php.net/manual/en/function.openssl-encrypt.php)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.2.0-6c63ff)](https://github.com/digital18/D18Notes/releases)
+[![Version](https://img.shields.io/badge/Version-1.3.0-6c63ff)](https://github.com/digital18/D18Notes/releases)
 [![Made by](https://img.shields.io/badge/Made%20by-DIGITAL18.IN-6c63ff)](https://digital18.in)
 
 *Write notes. Stay private. No setup hassle.*
@@ -68,10 +68,19 @@ It looks and feels like a modern chat app, works offline as a PWA, auto-updates 
 - **Keyboard navigation** — ↑ ↓ to browse, Enter to jump, Escape to close
 - **Click result** → smooth scroll + pulse animation on the target note
 
+### 🗂️ Categories & Starred Notes
+- **Two categories:** General (default) and ⭐ Starred
+- **Star any note** with the ☆ icon — toggles to ⭐ amber instantly via AJAX
+- **Filter tabs in header** — All / General / ⭐ Starred — switch views in one click
+- **Date separators auto-hide** when all notes in a day are filtered out
+- **Search always covers all notes** — filter tabs never restrict search results
+- **Live-polled notes** obey the active filter automatically
+
 ### ℹ️ Per-Note Metadata
 - Saves **IP address**, **browser name**, and **geolocation** (city, region, country) with every note
-- Three compact icon buttons per note (appear on hover):
+- Four compact icon buttons per note (appear on hover):
   - **ℹ** — hover or tap to see metadata in a tooltip
+  - **☆** — star / unstar the note
   - **✏️** — opens edit modal
   - **🗑** — delete with confirmation
 - Always visible on touch devices
@@ -293,6 +302,15 @@ The service worker and PWA install prompt **only work over HTTPS**. Most hosts p
 
 ## 📋 Changelog
 
+### v1.3.0 — Categories & Starred Notes
+- **Star any note** — ☆ icon per note toggles ⭐ amber; state stored in encrypted data file
+- **Filter tabs** — All / General / ⭐ Starred strip between search and chat area
+- **Smart date separators** — hidden automatically when all notes in a day are filtered out
+- **Filter-empty states** — friendly messages when a filter has no matches
+- **Search unchanged** — always searches across all notes regardless of active filter
+- New `Category` field in note data (`'general'` / `'star'`); existing notes default to `'general'`
+- New `setNoteCategory()` function in `config.php`; `action=star` AJAX endpoint in `index.php`
+
 ### v1.2.0 — Theming & Appearance
 - White note bubbles by default (clean minimal style)
 - **Dark / Light mode toggle** — 🌙/☀️ button in header, persisted to localStorage
@@ -333,7 +351,7 @@ Contributions are welcome! Here's how:
 5. **Open a Pull Request**
 
 ### Ideas for Contributions
-- [ ] Note categories / tags
+- [x] Note categories / starred notes
 - [ ] Markdown rendering in notes
 - [ ] Export notes to PDF / plain text
 - [ ] Multiple users support
