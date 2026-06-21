@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
 // Edit note (AJAX)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit') {
+    ob_start();
     $id   = (int)($_POST['id'] ?? 0);
     $note = trim($_POST['note'] ?? '');
     $dt   = trim($_POST['datetime'] ?? '');
@@ -23,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
         $dt = ($dt !== '') ? $dt : date('Y-m-d H:i:s');
         updateNote($id, $note, $dt);
     }
+    ob_end_clean();
     header('Content-Type: application/json');
     echo json_encode(['ok' => true]);
     exit;
@@ -30,14 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
 
 // Star / unstar note (AJAX)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'star') {
-    $id      = (int)($_POST['id'] ?? 0);
-    $newCat  = 'general';
+    ob_start();
+    $id     = (int)($_POST['id'] ?? 0);
+    $newCat = 'general';
     if ($id > 0) {
         $notes = loadNotes();
         foreach ($notes as &$n) {
             if ((int)$n['Id'] === $id) {
-                $current = $n['Category'] ?? 'general';
-                $newCat  = ($current === 'star') ? 'general' : 'star';
+                $current       = $n['Category'] ?? 'general';
+                $newCat        = ($current === 'star') ? 'general' : 'star';
                 $n['Category'] = $newCat;
                 break;
             }
@@ -45,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'star'
         unset($n);
         saveNotes($notes);
     }
+    ob_end_clean();
     header('Content-Type: application/json');
     echo json_encode(['ok' => true, 'category' => $newCat]);
     exit;
@@ -52,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'star'
 
 // Add note (AJAX, supports text + file attachments)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add') {
+    ob_start(); // buffer any stray PHP warnings so they don't corrupt JSON
     $note        = trim($_POST['note'] ?? '');
     $attachments = [];
 
@@ -69,12 +74,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
                     'size'     => $f['size'][$i],
                 ]);
             } catch (RuntimeException $e) {
+                ob_end_clean();
                 header('Content-Type: application/json');
                 echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
                 exit;
             }
         }
     }
+
+    ob_end_clean();
 
     if ($note !== '' || !empty($attachments)) {
         $ip = getClientIP();
@@ -445,11 +453,15 @@ $bubbleText     = BUBBLE_TEXT;
     border-radius: var(--radius) var(--radius) 4px var(--radius);
     font-size: 0.95rem;
     line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-word;
     box-shadow: 0 2px 12px var(--shadow);
     transition: box-shadow 0.3s;
     border: 1px solid var(--border);
+  }
+
+  /* Text body inside bubble — owns pre-wrap so images/cards are not affected */
+  .note-text-body {
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   /* Left tail on left-aligned bubbles */
@@ -1170,8 +1182,9 @@ $bubbleText     = BUBBLE_TEXT;
   }
   .file-card-dl { color: var(--accent); font-size: 1rem; flex-shrink: 0; }
 
-  /* Space between attachments and note text */
-  .note-text-body { margin-top: 8px; }
+  /* Caption text below an attachment gets a small top gap */
+  .note-img-wrap  + .note-text-body,
+  .note-file-card + .note-text-body { margin-top: 8px; }
 
   /* ── Lightbox ────────────────────────────── */
   #lightbox {
@@ -1313,30 +1326,18 @@ $bubbleText     = BUBBLE_TEXT;
       $noteAtts = $note['Attachments'] ?? [];
     ?>
     <div class="note-wrapper" id="note-<?= (int)$note['Id'] ?>" data-category="<?= htmlspecialchars($noteCat, ENT_QUOTES) ?>">
-      <div class="note-bubble">
-        <?php foreach ($noteAtts as $att): ?>
-          <?php if (strpos($att['mime'], 'image/') === 0): ?>
-            <a class="note-img-wrap" href="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>" target="_blank"
-               onclick="event.preventDefault(); openLightbox('media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>', '<?= htmlspecialchars($att['original'], ENT_QUOTES) ?>')">
-              <img class="note-img" src="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>"
-                   alt="<?= htmlspecialchars($att['original']) ?>" loading="lazy">
-            </a>
-          <?php else: ?>
-            <a class="note-file-card" href="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>"
-               download="<?= htmlspecialchars($att['original'], ENT_QUOTES) ?>" target="_blank">
-              <span class="file-card-icon"><?= fileIconEmoji($att['mime']) ?></span>
-              <div class="file-card-info">
-                <span class="file-card-name"><?= htmlspecialchars($att['original']) ?></span>
-                <span class="file-card-size"><?= formatFileSize((int)$att['size']) ?></span>
-              </div>
-              <span class="file-card-dl">⬇</span>
-            </a>
-          <?php endif; ?>
-        <?php endforeach; ?>
-        <?php if ($note['Note'] !== ''): ?>
-          <div class="note-text-body"><?= nl2br(htmlspecialchars($note['Note'])) ?></div>
-        <?php endif; ?>
-      </div>
+      <div class="note-bubble"><?php
+        foreach ($noteAtts as $att):
+          if (strpos($att['mime'], 'image/') === 0): ?>
+<a class="note-img-wrap" href="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>" target="_blank"
+ onclick="event.preventDefault();openLightbox('media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>','<?= htmlspecialchars($att['original'], ENT_QUOTES) ?>')"
+><img class="note-img" src="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>" alt="<?= htmlspecialchars($att['original']) ?>" loading="lazy"></a><?php
+          else: ?>
+<a class="note-file-card" href="media/<?= htmlspecialchars($att['filename'], ENT_QUOTES) ?>" download="<?= htmlspecialchars($att['original'], ENT_QUOTES) ?>" target="_blank"><span class="file-card-icon"><?= fileIconEmoji($att['mime']) ?></span><div class="file-card-info"><span class="file-card-name"><?= htmlspecialchars($att['original']) ?></span><span class="file-card-size"><?= formatFileSize((int)$att['size']) ?></span></div><span class="file-card-dl">⬇</span></a><?php
+          endif;
+        endforeach;
+        if ($note['Note'] !== ''): ?><div class="note-text-body"><?= nl2br(htmlspecialchars($note['Note'])) ?></div><?php
+        endif; ?></div>
 
       <div class="note-actions">
         <span class="note-time"><?= $dt->format('h:i A') ?></span>
