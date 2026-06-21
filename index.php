@@ -42,9 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note'])) {
     }
 }
 
-$notes     = fetchNotes();
-$count     = count($notes);
-$bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
+$notes          = fetchNotes();
+$count          = count($notes);
+$bodyClass      = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
+$defaultTheme   = APP_THEME;
+$accentColor    = ACCENT_COLOR;
+$bubbleBg       = BUBBLE_BG;
+$bubbleText     = BUBBLE_TEXT;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -74,14 +78,35 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:      #f0f2f7;
-    --surface: #ffffff;
-    --border:  rgba(0,0,0,0.08);
-    --accent:  #6c63ff;
-    --text:    #1e1e2e;
-    --muted:   #8890a4;
-    --bubble:  linear-gradient(135deg, #6c63ff, #8b5cf6);
-    --radius:  18px;
+    /* ── Light theme (default) ─────────────── */
+    --bg:        #f0f2f7;
+    --surface:   #ffffff;
+    --border:    rgba(0,0,0,0.08);
+    --text:      #1e1e2e;
+    --muted:     #8890a4;
+    --input-bg:  #f0f2f7;
+    --shadow:    rgba(0,0,0,0.08);
+
+    /* ── From config.php ───────────────────── */
+    --accent:    <?= htmlspecialchars($accentColor, ENT_QUOTES) ?>;
+    --note-bg:   <?= htmlspecialchars($bubbleBg,    ENT_QUOTES) ?>;
+    --note-text: <?= htmlspecialchars($bubbleText,  ENT_QUOTES) ?>;
+
+    /* ── Legacy alias (avatar, send btn etc.) ─ */
+    --bubble:    var(--accent);
+
+    --radius:    18px;
+  }
+
+  /* ── Dark theme ────────────────────────── */
+  [data-theme="dark"] {
+    --bg:       #0d0d1a;
+    --surface:  #16162a;
+    --border:   rgba(255,255,255,0.08);
+    --text:     #e8eaf6;
+    --muted:    #5c6680;
+    --input-bg: #1e1e36;
+    --shadow:   rgba(0,0,0,0.35);
   }
 
   html, body { height: 100%; }
@@ -126,9 +151,9 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   .header-actions { display: flex; gap: 10px; align-items: center; }
 
   .note-count {
-    background: rgba(108,99,255,0.1);
-    border: 1px solid rgba(108,99,255,0.25);
-    color: #6c63ff;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    color: var(--accent);
     font-size: 0.75rem;
     font-weight: 600;
     padding: 4px 10px;
@@ -151,9 +176,9 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   .btn-logout:hover { background: rgba(239,68,68,0.15); }
 
   #installBtn {
-    background: rgba(108,99,255,0.1);
-    border: 1px solid rgba(108,99,255,0.3);
-    color: #6c63ff;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+    color: var(--accent);
     font-size: 0.78rem;
     font-weight: 600;
     font-family: inherit;
@@ -165,7 +190,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     gap: 5px;
     transition: background 0.2s;
   }
-  #installBtn:hover { background: rgba(108,99,255,0.18); }
+  #installBtn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 
   /* ── Search bar ──────────────────────────── */
   .search-bar {
@@ -182,18 +207,18 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     margin: 0 auto;
     display: flex;
     align-items: center;
-    background: var(--bg);
-    border: 1.5px solid rgba(0,0,0,0.1);
+    background: var(--input-bg);
+    border: 1.5px solid var(--border);
     border-radius: 12px;
     padding: 0 14px;
     gap: 10px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   }
 
   .search-inner:focus-within {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
-    background: #fff;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+    background: var(--surface);
   }
 
   .search-icon { color: var(--muted); font-size: 1rem; line-height: 1; flex-shrink: 0; }
@@ -229,7 +254,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     font-size: 0.72rem;
     font-weight: 600;
     color: var(--accent);
-    background: rgba(108,99,255,0.1);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
     border-radius: 20px;
     padding: 2px 8px;
     white-space: nowrap;
@@ -242,8 +267,8 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     top: calc(100% - 2px);
     left: 20px;
     right: 20px;
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.1);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 16px 16px;
     box-shadow: 0 12px 36px rgba(0,0,0,0.12);
@@ -266,13 +291,13 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     gap: 12px;
     align-items: flex-start;
   }
-  .search-result-item:hover  { background: #f5f3ff; }
+  .search-result-item:hover  { background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .search-result-item:last-child { border-bottom: none; }
-  .search-result-item.focused { background: #f5f3ff; }
+  .search-result-item.focused { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
   .result-num {
     width: 22px; height: 22px;
-    background: rgba(108,99,255,0.12);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
     color: var(--accent);
     border-radius: 6px;
     font-size: 0.68rem;
@@ -297,7 +322,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   }
 
   .result-preview mark {
-    background: rgba(108,99,255,0.18);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
     color: var(--accent);
     border-radius: 3px;
     padding: 0 2px;
@@ -366,16 +391,17 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   }
 
   .note-bubble {
-    background: var(--bubble);
-    color: #fff;
+    background: var(--note-bg);
+    color: var(--note-text);
     padding: 14px 18px;
     border-radius: var(--radius) var(--radius) 4px var(--radius);
     font-size: 0.95rem;
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-word;
-    box-shadow: 0 4px 18px rgba(108,99,255,0.25);
+    box-shadow: 0 2px 12px var(--shadow);
     transition: box-shadow 0.3s;
+    border: 1px solid var(--border);
   }
 
   /* Left tail on left-aligned bubbles */
@@ -388,9 +414,9 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     animation: pop-highlight 1.8s ease forwards;
   }
   @keyframes pop-highlight {
-    0%   { box-shadow: 0 0 0 0   rgba(108,99,255,0.8); transform: scale(1); }
-    20%  { box-shadow: 0 0 0 10px rgba(108,99,255,0.2); transform: scale(1.02); }
-    100% { box-shadow: 0 4px 18px rgba(108,99,255,0.25); transform: scale(1); }
+    0%   { box-shadow: 0 0 0 0    color-mix(in srgb, var(--accent) 80%, transparent); transform: scale(1); }
+    20%  { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent); transform: scale(1.02); }
+    100% { box-shadow: 0 2px 12px var(--shadow); transform: scale(1); }
   }
 
   .note-time {
@@ -446,7 +472,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
 
   /* Info icon */
   .info-btn { color: var(--accent); }
-  .info-btn:hover { background: rgba(108,99,255,0.1) !important; }
+  .info-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent) !important; }
 
   /* Delete icon */
   .del-btn { color: #ef4444; }
@@ -568,8 +594,8 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
 
   textarea {
     flex: 1;
-    background: var(--bg);
-    border: 1.5px solid rgba(0,0,0,0.1);
+    background: var(--input-bg);
+    border: 1.5px solid var(--border);
     border-radius: 14px;
     padding: 13px 16px;
     font-size: 0.95rem;
@@ -584,13 +610,13 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   }
   textarea:focus {
     border-color: var(--accent);
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
   }
   textarea::placeholder { color: var(--muted); }
 
   button.send-btn {
-    background: var(--bubble);
+    background: var(--accent);
     border: none;
     border-radius: 14px;
     width: 52px;
@@ -603,7 +629,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     font-size: 1.3rem;
     color: #fff;
     transition: opacity 0.2s, transform 0.1s;
-    box-shadow: 0 4px 14px rgba(108,99,255,0.35);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent);
   }
   button.send-btn:hover  { opacity: 0.88; }
   button.send-btn:active { transform: scale(0.93); }
@@ -687,7 +713,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     bottom: 90px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+    background: var(--accent);
     color: #fff;
     border: none;
     border-radius: 24px;
@@ -696,7 +722,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    box-shadow: 0 6px 24px rgba(108,99,255,0.45);
+    box-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 45%, transparent);
     display: none;
     opacity: 0;
     transition: opacity 0.3s, transform 0.3s;
@@ -805,8 +831,8 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   }
   .edit-textarea:focus {
     border-color: var(--accent);
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 
   .edit-dt-label {
@@ -820,8 +846,8 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
 
   .edit-dt-input {
     width: 100%;
-    background: var(--bg);
-    border: 1.5px solid rgba(0,0,0,0.1);
+    background: var(--input-bg);
+    border: 1.5px solid var(--border);
     border-radius: 12px;
     padding: 11px 14px;
     font-size: 0.9rem;
@@ -829,11 +855,12 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     color: var(--text);
     outline: none;
     transition: border-color 0.2s, background 0.2s;
+    color-scheme: light dark;
   }
   .edit-dt-input:focus {
     border-color: var(--accent);
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 
   .modal-actions {
@@ -858,7 +885,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   .btn-modal-cancel:hover { background: rgba(0,0,0,0.1); }
 
   .btn-modal-save {
-    background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+    background: var(--accent);
     border: none;
     border-radius: 10px;
     padding: 10px 22px;
@@ -868,11 +895,41 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
     cursor: pointer;
     color: #fff;
     transition: opacity 0.2s;
-    box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
   }
   .btn-modal-save:hover   { opacity: 0.88; }
   .btn-modal-save:active  { transform: scale(0.97); }
   .btn-modal-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Theme toggle button ─────────────────── */
+  .btn-theme {
+    background: rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-theme:hover { background: rgba(0,0,0,0.1); }
+  [data-theme="dark"] .btn-theme {
+    background: rgba(255,255,255,0.06);
+  }
+  [data-theme="dark"] .btn-theme:hover { background: rgba(255,255,255,0.12); }
+
+  /* ── Dark mode misc overrides ────────────── */
+  [data-theme="dark"] .modal-card { background: var(--surface); }
+  [data-theme="dark"] .edit-textarea { background: var(--input-bg); }
+  [data-theme="dark"] header { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  [data-theme="dark"] .input-area { box-shadow: 0 -2px 10px rgba(0,0,0,0.3); }
+  [data-theme="dark"] .btn-modal-cancel { background: rgba(255,255,255,0.08); color: var(--muted); }
+  [data-theme="dark"] .btn-modal-cancel:hover { background: rgba(255,255,255,0.14); }
+  [data-theme="dark"] #searchClear:hover { background: rgba(255,255,255,0.08); }
 </style>
 </head>
 <body class="<?= $bodyClass ?>">
@@ -888,6 +945,7 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
   </div>
   <div class="header-actions">
     <span class="note-count"><?= $count ?> note<?= $count !== 1 ? 's' : '' ?></span>
+    <button id="themeToggle" class="btn-theme" title="Toggle dark / light theme">🌙</button>
     <button id="installBtn" title="Install as App">⬇ Install</button>
     <a href="logout.php" class="btn-logout">Logout</a>
   </div>
@@ -1018,6 +1076,27 @@ $bodyClass = (BUBBLE_ALIGN === 'left') ? 'bubbles-left' : 'bubbles-right';
 </div>
 
 <script>
+  // ── Theme (dark / light) ────────────────────────────────────────────────────
+  const DEFAULT_THEME   = <?= json_encode($defaultTheme) ?>;
+  const themeToggleBtn  = document.getElementById('themeToggle');
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    themeToggleBtn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+
+  // Apply saved preference or config default on first load
+  const savedTheme = localStorage.getItem('d18notes-theme') || DEFAULT_THEME;
+  applyTheme(savedTheme);
+
+  themeToggleBtn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || DEFAULT_THEME;
+    const next    = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('d18notes-theme', next);
+  });
+
   // ── Scroll to bottom on load ────────────────
   const chat = document.getElementById('chatArea');
   chat.scrollTop = chat.scrollHeight;

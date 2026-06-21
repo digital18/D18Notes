@@ -24,6 +24,23 @@ define('DATA_FILE', __DIR__ . '/notes.dat');
 // 'right' — bubbles align to the right (chat/WhatsApp style)
 define('BUBBLE_ALIGN', 'left');
 
+// ── Default app theme ─────────────────────────────────────────────────────────
+// Sets the theme shown to a user on their first visit (before they toggle).
+// Users can always switch with the 🌙/☀️ button — preference is saved in localStorage.
+// 'light' — clean white interface
+// 'dark'  — dark navy interface
+define('APP_THEME', 'light');
+
+// ── Accent color ──────────────────────────────────────────────────────────────
+// Drives buttons, links, search highlights, badges — any accent element.
+// Examples: '#6c63ff' (purple), '#0ea5e9' (sky blue), '#10b981' (emerald), '#f59e0b' (amber)
+define('ACCENT_COLOR', '#6c63ff');
+
+// ── Note bubble appearance ────────────────────────────────────────────────────
+// Controls the look of individual note bubbles (NOT the app chrome).
+define('BUBBLE_BG',   '#ffffff');   // bubble background color
+define('BUBBLE_TEXT', '#1e1e2e');  // bubble text color
+
 // ── Derive 32-byte AES-256 key from passphrase ────────────────────────────────
 function getEncryptKey(): string {
     return hash('sha256', ENCRYPT_SECRET, true); // 32 raw bytes

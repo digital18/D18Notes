@@ -37,6 +37,20 @@ define('DATA_FILE', __DIR__ . '/notes.dat');
 // 'right' — right-aligned bubbles (chat/WhatsApp style)
 define('BUBBLE_ALIGN', 'left');
 
+// ── Default app theme ─────────────────────────────────────────────────────────
+// Sets the theme on first visit. Users toggle with 🌙/☀️; choice saved in localStorage.
+// 'light' — white interface  |  'dark' — dark navy interface
+define('APP_THEME', 'light');
+
+// ── Accent color ──────────────────────────────────────────────────────────────
+// Drives buttons, links, search highlights, badges.
+// Examples: '#6c63ff' (purple), '#0ea5e9' (sky blue), '#10b981' (emerald), '#f59e0b' (amber)
+define('ACCENT_COLOR', '#6c63ff');
+
+// ── Note bubble appearance ────────────────────────────────────────────────────
+define('BUBBLE_BG',   '#ffffff');   // bubble background color
+define('BUBBLE_TEXT', '#1e1e2e');  // bubble text color
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  Everything below this line is application logic — no need to change.
 // ══════════════════════════════════════════════════════════════════════════════
