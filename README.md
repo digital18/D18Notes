@@ -10,6 +10,7 @@
 [![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Encryption](https://img.shields.io/badge/Encryption-AES--256--CBC-22c55e)](https://www.php.net/manual/en/function.openssl-encrypt.php)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.2.0-6c63ff)](https://github.com/digital18/D18Notes/releases)
 [![Made by](https://img.shields.io/badge/Made%20by-DIGITAL18.IN-6c63ff)](https://digital18.in)
 
 *Write notes. Stay private. No setup hassle.*
@@ -22,7 +23,7 @@
 
 D18 Notes is a **self-hosted personal notes app** built entirely in PHP — no framework, no database, no cloud dependency. All your notes are stored locally in a single **AES-256-CBC encrypted file** that nobody can read without your secret key.
 
-It looks and feels like a modern chat app, works offline as a PWA, and auto-updates in real-time across browser tabs.
+It looks and feels like a modern chat app, works offline as a PWA, auto-updates in real-time, supports dark/light themes, and lets you fully customize the look from a single config file.
 
 ---
 
@@ -37,13 +38,29 @@ It looks and feels like a modern chat app, works offline as a PWA, and auto-upda
 - **`.htaccess` file locks** — `config.php`, `notes.dat`, `make_hash.php` blocked from direct browser access
 
 ### 📝 Notes Interface
-- **Chat-style layout** — notes displayed as chat bubbles, newest at bottom
+- **Chat-style layout** — notes displayed as bubbles, newest at bottom
+- **Configurable alignment** — left (diary style) or right (WhatsApp style) via config
 - **Date separators** — "Today", "Yesterday", full date for older notes
 - **Shift+Enter** for new line, **Enter** to send
 - **Auto-scroll** to latest note on page load
 - **Live auto-refresh** every 4 seconds — new notes appear without page reload
 - **"↓ New notes"** floating button when scrolled up and new notes arrive
 - **Select text → Copy tooltip** — select any text in a bubble to get a clipboard copy button
+
+### ✏️ Edit Notes
+- **Edit any note** — click the ✏️ icon to open the edit modal
+- **Update note content** — full textarea with original text pre-filled
+- **Update timestamp** — change the note's date & time with a datetime picker
+- **AJAX save** — no page reload; bubble updates in-place instantly
+- **Works for live-polled notes** too — not just server-rendered ones
+
+### 🎨 Theming & Appearance
+- **Dark / Light mode toggle** — 🌙/☀️ button in the header; preference saved to localStorage
+- **Configurable default theme** — set `APP_THEME` in config to `'light'` or `'dark'`
+- **Custom accent color** — one constant drives buttons, badges, highlights, focus rings, send button
+- **Custom bubble colors** — set bubble background and text color independently in config
+- **White bubbles by default** — clean minimal look with subtle border and neutral shadow
+- **CSS `color-mix()` theming** — accent color scales automatically to all tints and shadows
 
 ### 🔍 Search
 - **Live full-text search** across all notes as you type
@@ -53,17 +70,17 @@ It looks and feels like a modern chat app, works offline as a PWA, and auto-upda
 
 ### ℹ️ Per-Note Metadata
 - Saves **IP address**, **browser name**, and **geolocation** (city, region, country) with every note
-- Two compact icon buttons per note:
-  - **ℹ** — hover or tap to see metadata in a dark tooltip
+- Three compact icon buttons per note (appear on hover):
+  - **ℹ** — hover or tap to see metadata in a tooltip
+  - **✏️** — opens edit modal
   - **🗑** — delete with confirmation
-- Icons appear on hover (desktop) or always visible (touch devices)
+- Always visible on touch devices
 
 ### 📱 Progressive Web App (PWA)
 - **Installable** on Android, iOS, and Desktop (Chrome, Edge, Safari)
 - **Custom SVG icon** with PNG fallback (generated via PHP GD)
 - **Offline fallback page** — friendly message when no connection
 - **Service worker** caches fonts and static assets for fast repeat loads
-- **Theme color** — purple system chrome on mobile
 - **"⬇ Install" button** in header (appears when installable)
 
 ### 🚫 No Database
@@ -86,6 +103,7 @@ It looks and feels like a modern chat app, works offline as a PWA, and auto-upda
 | PWA | Web App Manifest + Service Worker |
 | Geolocation | [ip-api.com](http://ip-api.com) (free, no key required) |
 | Icons | SVG + PHP GD (PNG generation) |
+| Theming | CSS custom properties + `color-mix()` |
 
 ---
 
@@ -100,19 +118,13 @@ It looks and feels like a modern chat app, works offline as a PWA, and auto-upda
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/yourusername/d18notes.git
-cd d18notes
+git clone https://github.com/digital18/D18Notes.git
+cd D18Notes
 ```
 
 **2. Copy and configure**
 ```bash
 cp config.example.php config.php
-```
-
-Open `config.php` and update:
-```php
-define('APP_PASSWORD_HASH', '');        // Leave empty for now — see Step 3
-define('ENCRYPT_SECRET',    'change-this-to-a-long-random-phrase-you-will-remember');
 ```
 
 **3. Generate your password hash**
@@ -125,7 +137,7 @@ define('APP_PASSWORD_HASH', '$2y$12$your_generated_hash_here...');
 
 **4. Upload to your server**
 
-Upload all files. Ensure the web root directory is **writable** by PHP so `notes.dat` can be created.
+Upload all files. Ensure the directory is **writable** by PHP so `notes.dat` can be created.
 
 **5. Open in browser**
 
@@ -133,13 +145,13 @@ Upload all files. Ensure the web root directory is **writable** by PHP so `notes
 https://yourdomain.com/notes/login.php
 ```
 
-That's it. The encrypted `notes.dat` file is created automatically on your first note.
+The encrypted `notes.dat` is created automatically on your first note.
 
 ---
 
 ## ⚙️ Configuration
 
-All configuration lives in `config.php`:
+All configuration lives in `config.php`. Copy from `config.example.php` to get started.
 
 ```php
 // ── Password (bcrypt hash) ────────────────────────────────────────────────
@@ -151,8 +163,26 @@ define('APP_PASSWORD_HASH', '$2y$12$...');
 define('ENCRYPT_SECRET', 'your-long-random-secret-phrase-here');
 
 // ── Data file path ────────────────────────────────────────────────────────
-// Where notes.dat is stored — default is same directory as index.php
 define('DATA_FILE', __DIR__ . '/notes.dat');
+
+// ── Note bubble alignment ─────────────────────────────────────────────────
+// 'left'  — left-aligned bubbles (document / diary style)
+// 'right' — right-aligned bubbles (chat / WhatsApp style)
+define('BUBBLE_ALIGN', 'left');
+
+// ── Default app theme ─────────────────────────────────────────────────────
+// Sets the theme on first visit; users toggle with 🌙/☀️ (saved to localStorage)
+// 'light' | 'dark'
+define('APP_THEME', 'light');
+
+// ── Accent color ──────────────────────────────────────────────────────────
+// Drives buttons, links, badges, search highlights, focus rings, and shadows.
+// Examples: '#6c63ff' (purple), '#0ea5e9' (sky blue), '#10b981' (emerald), '#f59e0b' (amber)
+define('ACCENT_COLOR', '#6c63ff');
+
+// ── Note bubble appearance ────────────────────────────────────────────────
+define('BUBBLE_BG',   '#ffffff');   // bubble background
+define('BUBBLE_TEXT', '#1e1e2e');  // bubble text color
 ```
 
 ### Changing Your Password
@@ -167,7 +197,7 @@ define('DATA_FILE', __DIR__ . '/notes.dat');
 ## 📁 File Structure
 
 ```
-d18notes/
+D18Notes/
 ├── config.php            ← App config + all core logic
 ├── config.example.php    ← Template for new installs
 ├── index.php             ← Main notes page
@@ -220,7 +250,6 @@ Direct browser access to these files returns `403 Forbidden`:
 - `notes.dat` — your encrypted data
 - `make_hash.php` — password tool
 - `debug.php` — diagnostic tool
-- `bridge.php` — DB bridge (legacy)
 
 ### Session Security
 - `session_regenerate_id(true)` on every successful login
@@ -257,11 +286,39 @@ Math CAPTCHA (`What is X + Y?`) with answer stored server-side in session — bl
 - Ensure PHP 7.4+ is selected in PHP configuration
 - The `notes.dat` file is created automatically — no manual DB setup
 
-### If on the same server as MySQL
-Change `DB_HOST` to `localhost` if you ever want to switch to a database backend.
-
 ### HTTPS Required for PWA
 The service worker and PWA install prompt **only work over HTTPS**. Most hosts provide free SSL via Let's Encrypt.
+
+---
+
+## 📋 Changelog
+
+### v1.2.0 — Theming & Appearance
+- White note bubbles by default (clean minimal style)
+- **Dark / Light mode toggle** — 🌙/☀️ button in header, persisted to localStorage
+- New config constants: `APP_THEME`, `ACCENT_COLOR`, `BUBBLE_BG`, `BUBBLE_TEXT`
+- Full CSS refactor: all accent tints use `color-mix()` — one color value drives everything
+- All inputs, modals, search dropdown, header fully adapt to active theme
+- Dark palette: deep navy background (`#0d0d1a`), dark surfaces, muted text
+
+### v1.1.0 — Edit Notes & Alignment
+- **Edit any note** — ✏️ icon opens modal with pre-filled text and datetime picker
+- **Update timestamp** — change when a note was created
+- AJAX save — no page reload; in-place DOM update + search index sync
+- **Configurable bubble alignment** — `BUBBLE_ALIGN: 'left' | 'right'` in config
+- New `updateNote()` function in `config.php`
+
+### v1.0.0 — Initial Release
+- AES-256-CBC encrypted flat file storage (no database)
+- Bcrypt password + math CAPTCHA login
+- Chat-style notes UI with date separators
+- Live auto-refresh every 4 seconds
+- Live full-text search with keyboard navigation
+- Per-note metadata (IP, browser, geolocation) in compact tooltip
+- Copy-to-clipboard on text selection
+- Full PWA — installable on Android, iOS, Desktop
+- Service worker with offline fallback
+- MIT License / Open Source
 
 ---
 
@@ -281,9 +338,9 @@ Contributions are welcome! Here's how:
 - [ ] Export notes to PDF / plain text
 - [ ] Multiple users support
 - [ ] Note pinning
-- [ ] Dark/light theme toggle
-- [ ] Note character/word count
+- [ ] Note character / word count
 - [ ] Configurable polling interval
+- [ ] Note search with date range filter
 
 ### Code Style
 - Procedural PHP — no OOP, no framework
@@ -306,7 +363,7 @@ You are free to use, modify, and distribute this project for personal or commerc
 **DIGITAL18.IN**
 
 - 🌐 Website: [digital18.in](https://digital18.in)
-- 💻 GitHub: [@digital18in](https://github.com/digital18in)
+- 💻 GitHub: [@digital18](https://github.com/digital18)
 
 ---
 
