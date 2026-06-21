@@ -10,7 +10,7 @@
 [![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Encryption](https://img.shields.io/badge/Encryption-AES--256--CBC-22c55e)](https://www.php.net/manual/en/function.openssl-encrypt.php)
 [![License](https://img.shields.io/badge/License-MIT-f59e0b)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.4.0-6c63ff)](https://github.com/digital18/D18Notes/releases)
+[![Version](https://img.shields.io/badge/Version-1.4.1-6c63ff)](https://github.com/digital18/D18Notes/releases)
 [![Made by](https://img.shields.io/badge/Made%20by-DIGITAL18.IN-6c63ff)](https://digital18.in)
 
 *Write notes. Stay private. No setup hassle.*
@@ -69,7 +69,7 @@ It looks and feels like a modern chat app, works offline as a PWA, auto-updates 
 - **Up to 5 attachments per note**, max 20 MB each
 - **Inline image display** — images render inside the note bubble; tap to open fullscreen lightbox
 - **File download cards** — PDF, Word, Excel, text, JSON shown as tappable cards with icon, name, and size
-- **Supported types:** JPEG, PNG, GIF, WebP (images) · PDF · DOC/DOCX (Word) · XLS/XLSX (Excel) · TXT, CSV, JSON
+- **Supported types:** JPEG, PNG, GIF, WebP, BMP, TIFF (images) · PDF · DOC/DOCX (Word) · XLS/XLSX (Excel) · TXT, CSV, JSON
 - **Files stored in `media/` folder** — raw files, served directly, PHP execution blocked by `.htaccess`
 - **Delete note = delete files** — attached media files are removed from disk when a note is deleted
 - **Text + attachment** in the same note — caption text shown below the attachment
@@ -313,6 +313,14 @@ The service worker and PWA install prompt **only work over HTTPS**. Most hosts p
 ---
 
 ## 📋 Changelog
+
+### v1.4.1 — Attachment Bug Fixes
+- **Fixed clipboard paste + text → "Network error"** — PHP `fileinfo` extension absence now handled gracefully via `detectMimeType()` fallback chain (`finfo` → `mime_content_type()` → browser-provided type)
+- **Fixed post_max_size overflow** — if PHP silently discards a large upload body, the server now returns a proper JSON error instead of the full HTML page
+- **Added BMP and TIFF** to allowed image MIME types — covers macOS clipboard formats from native apps
+- **Improved JS error reporting** — upload failures show the real server message instead of the generic "Network error — please try again"
+- **Null-safe clipboard paste** — `getAsFile()` results are filtered for `null` before being queued
+- **Catch-all PHP error handling** — `catch (\Throwable)` replaces `catch (RuntimeException)` so PHP Errors (class-not-found, extension missing) are returned as JSON too
 
 ### v1.4.0 — File & Media Attachments
 - **📎 Attach files** — paperclip button, clipboard paste, and drag & drop in the input area

@@ -57,6 +57,7 @@ define('MAX_FILE_SIZE', 20 * 1024 * 1024);   // 20 MB per file
 define('MAX_FILES',     5);                   // max attachments per note
 define('ALLOWED_MIME', [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'image/bmp', 'image/tiff', 'image/x-bmp',
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -200,6 +201,21 @@ function ensureMediaDir(): void {
     }
 }
 
+// ── Detect MIME type with fallbacks (fileinfo ext → mime_content_type → browser) ─
+function detectMimeType(string $path, string $browserType = ''): string {
+    if (class_exists('finfo', false)) {
+        try {
+            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+            if ($mime !== false && $mime !== '') return $mime;
+        } catch (\Throwable $ignored) {}
+    }
+    if (function_exists('mime_content_type')) {
+        $mime = @mime_content_type($path);
+        if ($mime !== false && $mime !== '') return $mime;
+    }
+    return $browserType; // still allowlist-checked below
+}
+
 // ── Upload a single file to media/ and return its metadata ───────────────────
 function uploadMedia(array $file): array {
     if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -215,13 +231,13 @@ function uploadMedia(array $file): array {
     if ($file['size'] > MAX_FILE_SIZE) {
         throw new RuntimeException('File too large (max ' . (MAX_FILE_SIZE / 1024 / 1024) . ' MB)');
     }
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mime  = $finfo->file($file['tmp_name']);
+    $mime = detectMimeType($file['tmp_name'], $file['type']);
     if (!in_array($mime, ALLOWED_MIME, true)) {
         throw new RuntimeException('File type not allowed: ' . $mime);
     }
     static $extMap = [
-        'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp',
+        'image/jpeg'  => 'jpg',  'image/png'  => 'png',  'image/gif'  => 'gif', 'image/webp' => 'webp',
+        'image/bmp'   => 'bmp',  'image/tiff' => 'tiff', 'image/x-bmp' => 'bmp',
         'application/pdf' => 'pdf', 'application/msword' => 'doc',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
         'application/vnd.ms-excel' => 'xls',

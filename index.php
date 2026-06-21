@@ -6,6 +6,17 @@ if (empty($_SESSION['logged_in'])) {
     exit;
 }
 
+// If the request body was discarded because post_max_size was exceeded,
+// PHP silently empties $_POST and $_FILES — catch it here before any
+// handler runs so AJAX callers get JSON instead of the full HTML page.
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && empty($_POST)
+    && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Upload rejected by server (post_max_size exceeded). Restart Herd or check .user.ini.']);
+    exit;
+}
+
 // Delete note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
@@ -73,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
                     'error'    => $f['error'][$i],
                     'size'     => $f['size'][$i],
                 ]);
-            } catch (RuntimeException $e) {
+            } catch (\Throwable $e) {
                 ob_end_clean();
                 header('Content-Type: application/json');
                 echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
@@ -2241,7 +2252,7 @@ $bubbleText     = BUBBLE_TEXT;
     const imageItems = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'));
     if (!imageItems.length) return;
     e.preventDefault();
-    addFiles(imageItems.map(it => it.getAsFile()));
+    addFiles(imageItems.map(it => it.getAsFile()).filter(Boolean));
   });
 
   // Drag and drop files onto input area
@@ -2277,8 +2288,11 @@ $bubbleText     = BUBBLE_TEXT;
       fd.append('note',   ta.value.trim());
       pendingFiles.forEach(pf => fd.append('files[]', pf.file));
 
-      const res  = await fetch('index.php', { method: 'POST', body: fd });
-      const data = await res.json();
+      const res     = await fetch('index.php', { method: 'POST', body: fd });
+      const rawText = await res.text();
+      let data;
+      try { data = JSON.parse(rawText); }
+      catch { throw new Error(rawText.slice(0, 300) || 'Server returned non-JSON response'); }
 
       if (!data.ok) {
         showUploadError(data.error || 'Failed to save note.');
